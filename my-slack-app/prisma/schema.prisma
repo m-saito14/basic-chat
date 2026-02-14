@@ -5,11 +5,85 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+// ユーザーモデル
+model User {
+  id        String   @id @default(uuid()) // 一意なID (UUID)
+  name      String
+  email     String   @unique
+  password  String   // ハッシュ化して保存することを想定
+  imageUrl  String?  // アイコン画像URL (任意)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // リレーション (ユーザーが持っているデータ)
+  messages  Message[] // ユーザーが送信したメッセージ一覧
+  channels  Member[]  // ユーザーが参加しているチャンネル情報
+}
+
+// チャンネルモデル (チャットルーム)
+model Channel {
+  id        String   @id @default(uuid())
+  name      String
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // リレーション
+  messages  Message[] // チャンネル内のメッセージ一覧
+  members   Member[]  // チャンネルに参加しているメンバー一覧
+}
+
+// メンバーモデル (UserとChannelの中間テーブル)
+// 誰がどのチャンネルに参加しているか、どんな権限を持っているかを管理
+model Member {
+  id        String   @id @default(uuid())
+  role      MemberRole @default(GUEST)
+
+  userId    String
+  channelId String
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([channelId])
+}
+
+// メッセージモデル
+model Message {
+  id        String   @id @default(uuid())
+  content   String   @db.Text // 長文も許容
+  fileUrl   String?  // 画像送信などの拡張用
+  
+  userId    String
+  channelId String
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  deleted   Boolean  @default(false) // 論理削除用
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([channelId])
+}
+
+// 権限管理用のEnum
+enum MemberRole {
+  ADMIN
+  MODERATOR
+  GUEST
 }
