@@ -1,8 +1,14 @@
 // app/api/messages/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../../lib/db";
+import { getSession } from "../../../../lib/auth";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const session = await getSession(req);
+  if (!session) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
   try {
     const { searchParams } = new URL(req.url);
     const channelId = searchParams.get("channelId");

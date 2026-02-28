@@ -1,13 +1,19 @@
 // app/api/channels/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "../../../../lib/db";
+import { getSession } from "../../../../lib/auth";
 
 // チャンネル一覧の取得
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const session = await getSession(req);
+  if (!session) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
   try {
     const channels = await db.channel.findMany({
       orderBy: {
-        createdAt: "asc", // 作成順に並べる
+        createdAt: "asc",
       },
     });
 
@@ -19,16 +25,21 @@ export async function GET(req: Request) {
 }
 
 // チャンネルの新規作成
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  const session = await getSession(req);
+  if (!session) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
   try {
     const { name } = await req.json();
-    
-    // 簡易的な認証チェック（本来はセッションからuserIdを取る）
-    // const userId = ... 
 
     const channel = await db.channel.create({
       data: {
         name,
+        members: {
+          create: { userId: session.userId },
+        },
       },
     });
 

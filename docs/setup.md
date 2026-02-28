@@ -41,6 +41,13 @@ cd ..
 
 ```env
 DATABASE_URL="postgresql://myuser:mypassword@localhost:5432/slack_clone_db"
+JWT_SECRET="<ランダムな64文字以上の文字列>"
+```
+
+`JWT_SECRET` は以下のコマンドで生成できます。
+
+```bash
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 ```
 
 > Socket.io サーバー専用の `.env` は不要です。起動スクリプトが `--env-file ../.env` で親ディレクトリの `.env` を参照します。
@@ -100,6 +107,8 @@ npm run dev
 # Next.js が http://localhost:3000 で起動
 ```
 
+起動後、ブラウザで `http://localhost:3000/register` にアクセスしてアカウントを作成してください。
+
 ---
 
 ## よく使うコマンド
@@ -129,8 +138,10 @@ npx prisma generate
 | 変数名 | 必須 | デフォルト | 説明 |
 |--------|------|-----------|------|
 | `DATABASE_URL` | 必須 | — | PostgreSQL 接続文字列 |
+| `JWT_SECRET` | 必須 | — | JWT署名用シークレット（64文字以上推奨） |
 | `FRONTEND_URL` | 任意 | `http://localhost:3000` | Socket.io の CORS 許可オリジン |
 | `SOCKET_PORT` | 任意 | `3001` | Socket.io サーバーのポート番号 |
+| `NEXT_PUBLIC_SOCKET_URL` | 任意 | `http://localhost:3001` | クライアントからの Socket.io 接続先URL |
 
 ---
 
@@ -147,6 +158,11 @@ npx prisma generate
 - Socket.io サーバー（port 3001）が起動しているか確認
 - 接続元オリジンが許可されているか確認（デフォルト: `http://localhost:3000`）
 - 別のオリジンから接続する場合は `FRONTEND_URL` 環境変数で指定する
+
+### Socket.io の認証エラー（connect_error）
+
+- `/api/me` が 401 を返していないか確認（ログインできているか）
+- `JWT_SECRET` が Next.js アプリと Socket.io サーバーで同じ値になっているか確認
 
 ### Prisma Client のエラー
 
