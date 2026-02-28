@@ -1,5 +1,6 @@
 // app/api/register/route.ts
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 import { db } from "../../../../lib/db";
 
 export async function POST(req: Request) {
@@ -10,12 +11,19 @@ export async function POST(req: Request) {
       return new NextResponse("Missing info", { status: 400 });
     }
 
-    // 本来はここでパスワードのハッシュ化 (bcryptなど) 
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const user = await db.user.create({
       data: {
         name,
         email,
-        password, // 学習用のため平文保存。実運用ではNG
+        password: hashedPassword,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
       },
     });
 
