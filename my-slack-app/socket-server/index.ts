@@ -1,5 +1,5 @@
 import { createServer } from "http";
-import { Server } from "socket.io";
+import { Server, Socket } from "socket.io";
 import { db } from "./db.js";
 
 const httpServer = createServer();
@@ -11,7 +11,7 @@ const io = new Server(httpServer, {
   },
 });
 
-io.on("connection", (socket) => {
+io.on("connection", (socket: Socket) => {
   console.log(`User connected: ${socket.id}`);
 
   socket.on("join_room", (roomId: string) => {
