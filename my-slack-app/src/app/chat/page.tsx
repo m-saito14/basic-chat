@@ -27,6 +27,9 @@ export default function ChatPage() {
 
   // 初期化: /api/me でセッション取得 → Socket.io 接続
   useEffect(() => {
+    let socketInstance: Socket | null = null;
+    let isActive = true;
+
     fetch("/api/me")
       .then((res) => {
         if (!res.ok) {
@@ -36,17 +39,20 @@ export default function ChatPage() {
         return res.json() as Promise<User>;
       })
       .then((data) => {
-        if (!data) return;
+        if (!data || !isActive) return;
         setUser(data);
 
         const socket = io(
           process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:3001",
           { auth: { token: data.token } }
         );
+        socketInstance = socket;
         socketRef.current = socket;
 
         socket.on("receive_message", (message: Message) => {
-          setMessages((prev) => [...prev, message]);
+          setMessages((prev) =>
+            prev.some((m) => m.id === message.id) ? prev : [...prev, message]
+          );
         });
 
         socket.on("connect_error", (err) => {
@@ -57,13 +63,16 @@ export default function ChatPage() {
         fetch("/api/channels")
           .then((r) => r.json())
           .then((list: Channel[]) => {
+            if (!isActive) return;
             setChannels(list);
             if (list.length > 0) selectChannel(list[0], socket);
           });
       });
 
     return () => {
-      socketRef.current?.disconnect();
+      isActive = false;
+      socketInstance?.disconnect();
+      socketRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
