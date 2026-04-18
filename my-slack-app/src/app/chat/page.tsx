@@ -5,12 +5,18 @@ import { useRouter } from "next/navigation";
 import { io, Socket } from "socket.io-client";
 
 type User = { userId: string; name: string; email: string; token: string };
-type Channel = { id: string; name: string };
+type Channel = { id: string; name: string; myRole: "ADMIN" | "MODERATOR" | "GUEST" };
 type Message = {
   id: string;
   content: string;
   createdAt: string;
   user: { id: string; name: string };
+};
+type Member = {
+  id: string;
+  role: "ADMIN" | "MODERATOR" | "GUEST";
+  userId: string;
+  user: { id: string; name: string; email: string };
 };
 
 export default function ChatPage() {
@@ -22,6 +28,10 @@ export default function ChatPage() {
   const [text, setText] = useState("");
   const [newChannelName, setNewChannelName] = useState("");
   const [showNewChannel, setShowNewChannel] = useState(false);
+  const [showMemberPanel, setShowMemberPanel] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteError, setInviteError] = useState("");
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -86,6 +96,8 @@ export default function ChatPage() {
     const s = socket ?? socketRef.current;
     setActiveChannel(channel);
     setMessages([]);
+    setShowMemberPanel(false);
+    setMembers([]);
 
     fetch(`/api/messages?channelId=${channel.id}`)
       .then((r) => r.json())
@@ -120,6 +132,66 @@ export default function ChatPage() {
       setNewChannelName("");
       setShowNewChannel(false);
       selectChannel(channel);
+    }
+  }
+
+  async function deleteChannel() {
+    if (!activeChannel) return;
+    if (!window.confirm(`「# ${activeChannel.name}」を削除しますか？この操作は元に戻せません。`)) return;
+
+    const res = await fetch(`/api/channels/${activeChannel.id}`, { method: "DELETE" });
+    if (res.ok) {
+      setChannels((prev) => prev.filter((ch) => ch.id !== activeChannel.id));
+      setActiveChannel(null);
+      setMessages([]);
+      setShowMemberPanel(false);
+    }
+  }
+
+  async function openMemberPanel() {
+    if (!activeChannel) return;
+    const res = await fetch(`/api/channels/${activeChannel.id}/members`);
+    if (res.ok) {
+      const list: Member[] = await res.json();
+      setMembers(list);
+    }
+    setShowMemberPanel(true);
+    setInviteEmail("");
+    setInviteError("");
+  }
+
+  async function inviteMember(e: React.FormEvent) {
+    e.preventDefault();
+    if (!inviteEmail.trim() || !activeChannel) return;
+    setInviteError("");
+
+    const res = await fetch(`/api/channels/${activeChannel.id}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: inviteEmail.trim() }),
+    });
+
+    if (res.ok) {
+      const newMember: Member = await res.json();
+      setMembers((prev) => [...prev, newMember]);
+      setInviteEmail("");
+    } else {
+      const msg = await res.text();
+      setInviteError(msg || "招待に失敗しました");
+    }
+  }
+
+  async function removeMember(userId: string) {
+    if (!activeChannel) return;
+
+    const res = await fetch(`/api/channels/${activeChannel.id}/members`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (res.ok) {
+      setMembers((prev) => prev.filter((m) => m.userId !== userId));
     }
   }
 
@@ -201,53 +273,168 @@ export default function ChatPage() {
       </aside>
 
       {/* Message Area */}
-      <main className="flex flex-1 flex-col">
+      <main className="flex flex-1 flex-col overflow-hidden">
         {activeChannel ? (
           <>
-            <header className="border-b border-zinc-700 px-6 py-3 font-semibold">
-              # {activeChannel.name}
+            <header className="flex items-center justify-between border-b border-zinc-700 px-6 py-3">
+              <span className="font-semibold"># {activeChannel.name}</span>
+              {activeChannel.myRole === "ADMIN" && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={openMemberPanel}
+                    className="rounded px-3 py-1 text-xs text-zinc-400 transition hover:bg-zinc-700 hover:text-white"
+                    title="メンバー管理"
+                  >
+                    メンバー管理
+                  </button>
+                  <button
+                    onClick={deleteChannel}
+                    className="rounded px-3 py-1 text-xs text-zinc-400 transition hover:bg-red-900 hover:text-red-400"
+                    title="チャンネルを削除"
+                  >
+                    削除
+                  </button>
+                </div>
+              )}
             </header>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              {messages.map((msg) => (
-                <div key={msg.id} className="mb-4">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-semibold text-zinc-100">
-                      {msg.user.name}
-                    </span>
-                    <span className="text-xs text-zinc-500">
-                      {new Date(msg.createdAt).toLocaleTimeString("ja-JP", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-sm text-zinc-300">{msg.content}</p>
+            <div className="flex flex-1 overflow-hidden">
+              {/* Messages */}
+              <div className="flex flex-1 flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto px-6 py-4">
+                  {messages.map((msg) => {
+                    const isMe = msg.user.id === user.userId;
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`mb-4 flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                      >
+                        <div className="flex items-baseline gap-2">
+                          {!isMe && (
+                            <span className="font-semibold text-zinc-100">
+                              {msg.user.name}
+                            </span>
+                          )}
+                          <span className="text-xs text-zinc-500">
+                            {new Date(msg.createdAt).toLocaleTimeString("ja-JP", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                        <p
+                          className={`mt-0.5 max-w-xs rounded-2xl px-4 py-2 text-sm break-words lg:max-w-md ${
+                            isMe
+                              ? "bg-blue-600 text-white"
+                              : "bg-zinc-700 text-zinc-300"
+                          }`}
+                        >
+                          {msg.content}
+                        </p>
+                      </div>
+                    );
+                  })}
+                  <div ref={bottomRef} />
                 </div>
-              ))}
-              <div ref={bottomRef} />
-            </div>
 
-            <form
-              onSubmit={sendMessage}
-              className="border-t border-zinc-700 px-6 py-4"
-            >
-              <div className="flex gap-2">
-                <input
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  placeholder={`# ${activeChannel.name} にメッセージを送信`}
-                  className="flex-1 rounded-lg bg-zinc-700 px-4 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:ring-1 focus:ring-zinc-500"
-                />
-                <button
-                  type="submit"
-                  disabled={!text.trim()}
-                  className="rounded-lg bg-zinc-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-500 disabled:opacity-40"
+                <form
+                  onSubmit={sendMessage}
+                  className="border-t border-zinc-700 px-6 py-4"
                 >
-                  送信
-                </button>
+                  <div className="flex gap-2">
+                    <input
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      placeholder={`# ${activeChannel.name} にメッセージを送信`}
+                      className="flex-1 rounded-lg bg-zinc-700 px-4 py-2 text-sm text-white placeholder-zinc-500 outline-none focus:ring-1 focus:ring-zinc-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!text.trim()}
+                      className="rounded-lg bg-zinc-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-zinc-500 disabled:opacity-40"
+                    >
+                      送信
+                    </button>
+                  </div>
+                </form>
               </div>
-            </form>
+
+              {/* Member Panel */}
+              {showMemberPanel && (
+                <aside className="flex w-72 flex-col border-l border-zinc-700 bg-zinc-800">
+                  <div className="flex items-center justify-between border-b border-zinc-700 px-4 py-3">
+                    <span className="text-sm font-semibold">メンバー管理</span>
+                    <button
+                      onClick={() => setShowMemberPanel(false)}
+                      className="text-zinc-400 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* 招待フォーム */}
+                  <div className="border-b border-zinc-700 p-4">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                      ユーザーを招待
+                    </p>
+                    <form onSubmit={inviteMember} className="flex flex-col gap-2">
+                      <input
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="メールアドレス"
+                        type="email"
+                        className="rounded bg-zinc-700 px-3 py-1.5 text-sm text-white placeholder-zinc-500 outline-none focus:ring-1 focus:ring-zinc-500"
+                      />
+                      {inviteError && (
+                        <p className="text-xs text-red-400">{inviteError}</p>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={!inviteEmail.trim()}
+                        className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-40"
+                      >
+                        招待する
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* メンバー一覧 */}
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                      メンバー ({members.length})
+                    </p>
+                    <ul className="flex flex-col gap-2">
+                      {members.map((m) => (
+                        <li
+                          key={m.id}
+                          className="flex items-center justify-between rounded bg-zinc-700 px-3 py-2"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-white">
+                              {m.user.name}
+                              {m.role === "ADMIN" && (
+                                <span className="ml-2 rounded bg-zinc-600 px-1.5 py-0.5 text-xs text-zinc-300">
+                                  管理者
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-zinc-400">{m.user.email}</p>
+                          </div>
+                          {m.role !== "ADMIN" && (
+                            <button
+                              onClick={() => removeMember(m.userId)}
+                              className="ml-2 rounded px-2 py-1 text-xs text-zinc-400 transition hover:bg-zinc-600 hover:text-red-400"
+                            >
+                              削除
+                            </button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </aside>
+              )}
+            </div>
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center text-zinc-500">
