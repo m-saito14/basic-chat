@@ -72,6 +72,25 @@ io.on("connection", (socket: Socket) => {
     }
   );
 
+  socket.on("mark_read", async (channelId: string) => {
+    try {
+      const now = new Date();
+      const result = await db.member.updateMany({
+        where: { userId: socket.data.userId, channelId },
+        data: { lastReadAt: now },
+      });
+      if (result.count === 0) return; // メンバーでない場合は無視
+
+      io.to(channelId).emit("read_update", {
+        channelId,
+        userId: socket.data.userId,
+        lastReadAt: now.toISOString(),
+      });
+    } catch (error) {
+      console.error("mark_read error:", error);
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log(`User disconnected: ${socket.id}`);
   });

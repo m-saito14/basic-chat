@@ -53,6 +53,8 @@ model Member {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
+  lastReadAt DateTime? // 最後にチャンネルを既読にした日時
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

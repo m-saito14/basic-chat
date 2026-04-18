@@ -18,6 +18,8 @@ type Member = {
   userId: string;
   user: { id: string; name: string; email: string };
 };
+// { [userId]: ISO文字列 | null }
+type ReadStatus = Record<string, string | null>;
 
 export default function ChatPage() {
   const router = useRouter();
@@ -32,8 +34,15 @@ export default function ChatPage() {
   const [members, setMembers] = useState<Member[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
+  const [readStatus, setReadStatus] = useState<ReadStatus>({});
   const socketRef = useRef<Socket | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // receive_message ハンドラ内で activeChannel を参照するための ref
+  const activeChannelRef = useRef<Channel | null>(null);
+
+  useEffect(() => {
+    activeChannelRef.current = activeChannel;
+  }, [activeChannel]);
 
   // 初期化: /api/me でセッション取得 → Socket.io 接続
   useEffect(() => {
@@ -63,7 +72,17 @@ export default function ChatPage() {
           setMessages((prev) =>
             prev.some((m) => m.id === message.id) ? prev : [...prev, message]
           );
+          // メッセージを受信したら自分の既読を更新
+          const ch = activeChannelRef.current;
+          if (ch) socket.emit("mark_read", ch.id);
         });
+
+        socket.on(
+          "read_update",
+          ({ userId, lastReadAt }: { channelId: string; userId: string; lastReadAt: string }) => {
+            setReadStatus((prev) => ({ ...prev, [userId]: lastReadAt }));
+          }
+        );
 
         socket.on("connect_error", (err) => {
           console.error("Socket error:", err.message);
@@ -75,7 +94,7 @@ export default function ChatPage() {
           .then((list: Channel[]) => {
             if (!isActive) return;
             setChannels(list);
-            if (list.length > 0) selectChannel(list[0], socket);
+            if (list.length > 0) selectChannel(list[0], socket, data.userId);
           });
       });
 
@@ -92,10 +111,11 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  function selectChannel(channel: Channel, socket?: Socket) {
+  function selectChannel(channel: Channel, socket?: Socket, currentUserId?: string) {
     const s = socket ?? socketRef.current;
     setActiveChannel(channel);
     setMessages([]);
+    setReadStatus({});
     setShowMemberPanel(false);
     setMembers([]);
 
@@ -103,7 +123,27 @@ export default function ChatPage() {
       .then((r) => r.json())
       .then((list: Message[]) => setMessages(list));
 
+    // 既読状態を取得
+    fetch(`/api/channels/${channel.id}/read-status`)
+      .then((r) => r.json())
+      .then((status: ReadStatus) => setReadStatus(status));
+
     s?.emit("join_room", channel.id);
+    // 自分の既読を更新
+    s?.emit("mark_read", channel.id);
+
+    // currentUserId は初回呼び出し時のみ渡される
+    void currentUserId;
+  }
+
+  // メッセージが自分のもので、他のメンバーが既読かどうかを判定
+  function isReadByOthers(message: Message): boolean {
+    if (!user || message.user.id !== user.userId) return false;
+    return Object.entries(readStatus).some(([userId, lastReadAt]) => {
+      if (userId === user.userId) return false;
+      if (!lastReadAt) return false;
+      return new Date(lastReadAt) >= new Date(message.createdAt);
+    });
   }
 
   function sendMessage(e: React.FormEvent) {
@@ -304,11 +344,13 @@ export default function ChatPage() {
                 <div className="flex-1 overflow-y-auto px-6 py-4">
                   {messages.map((msg) => {
                     const isMe = msg.user.id === user.userId;
+                    const read = isMe && isReadByOthers(msg);
                     return (
                       <div
                         key={msg.id}
                         className={`mb-4 flex flex-col ${isMe ? "items-end" : "items-start"}`}
                       >
+                        {/* 送信者名・時刻 */}
                         <div className="flex items-baseline gap-2">
                           {!isMe && (
                             <span className="font-semibold text-zinc-100">
@@ -322,15 +364,22 @@ export default function ChatPage() {
                             })}
                           </span>
                         </div>
-                        <p
-                          className={`mt-0.5 max-w-xs rounded-2xl px-4 py-2 text-sm break-words lg:max-w-md ${
-                            isMe
-                              ? "bg-blue-600 text-white"
-                              : "bg-zinc-700 text-zinc-300"
-                          }`}
-                        >
-                          {msg.content}
-                        </p>
+
+                        {/* バブル + 既読 */}
+                        <div className={`mt-0.5 flex items-end gap-1 ${isMe ? "flex-row-reverse" : ""}`}>
+                          <p
+                            className={`max-w-xs rounded-2xl px-4 py-2 text-sm break-words lg:max-w-md ${
+                              isMe
+                                ? "bg-blue-600 text-white"
+                                : "bg-zinc-700 text-zinc-300"
+                            }`}
+                          >
+                            {msg.content}
+                          </p>
+                          {read && (
+                            <span className="shrink-0 text-xs text-zinc-400">既読</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
