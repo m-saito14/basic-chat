@@ -17,6 +17,14 @@ export async function GET(req: NextRequest) {
       return new NextResponse("Channel ID missing", { status: 400 });
     }
 
+    // メンバーシップチェック
+    const member = await db.member.findFirst({
+      where: { userId: session.userId, channelId },
+    });
+    if (!member) {
+      return new NextResponse("Forbidden", { status: 403 });
+    }
+
     const messages = await db.message.findMany({
       where: {
         channelId,

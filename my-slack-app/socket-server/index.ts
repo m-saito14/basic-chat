@@ -32,7 +32,14 @@ io.use(async (socket, next) => {
 io.on("connection", (socket: Socket) => {
   console.log(`User connected: ${socket.id} (userId: ${socket.data.userId})`);
 
-  socket.on("join_room", (roomId: string) => {
+  socket.on("join_room", async (roomId: string) => {
+    const member = await db.member.findFirst({
+      where: { userId: socket.data.userId, channelId: roomId },
+    });
+    if (!member) {
+      socket.emit("error", { message: "このチャンネルへのアクセス権がありません" });
+      return;
+    }
     socket.join(roomId);
     console.log(`Joined room: ${roomId}`);
   });
@@ -40,6 +47,14 @@ io.on("connection", (socket: Socket) => {
   socket.on(
     "send_message",
     async (data: { roomId: string; text: string }) => {
+      const member = await db.member.findFirst({
+        where: { userId: socket.data.userId, channelId: data.roomId },
+      });
+      if (!member) {
+        socket.emit("error", { message: "このチャンネルへのアクセス権がありません" });
+        return;
+      }
+
       try {
         const message = await db.message.create({
           data: {
