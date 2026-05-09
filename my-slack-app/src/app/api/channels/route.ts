@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { name } = await req.json();
+    const { name } = (await req.json()) as { name: string };
 
     const channel = await db.channel.create({
       data: {

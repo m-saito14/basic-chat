@@ -5,7 +5,6 @@ const secret = new TextEncoder().encode(process.env.JWT_SECRET!);
 const COOKIE_NAME = "token";
 
 const PUBLIC_PATHS = ["/login", "/register"];
-const AUTH_EXCLUDED_API = ["/api/login", "/api/logout", "/api/register"];
 
 async function verifyToken(token: string): Promise<boolean> {
   try {

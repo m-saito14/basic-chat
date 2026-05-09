@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { apiUrl, uniqueSuffix, registerUser, login } from "./helpers";
+import { apiUrl, uniqueSuffix, registerUser } from "./helpers";
 import { cleanupUsers } from "./test-db";
 
 const SUFFIX = uniqueSuffix();

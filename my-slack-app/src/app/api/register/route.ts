@@ -5,7 +5,7 @@ import { db } from "../../../../lib/db";
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password } = await req.json();
+    const { name, email, password } = (await req.json()) as { name: string; email: string; password: string };
 
     if (!email || !name || !password) {
       return new NextResponse("Missing info", { status: 400 });

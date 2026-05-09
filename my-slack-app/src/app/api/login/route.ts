@@ -6,7 +6,7 @@ import { signToken, setTokenCookie } from "../../../../lib/auth";
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const { email, password } = (await req.json()) as { email: string; password: string };
 
     if (!email || !password) {
       return new NextResponse("Missing info", { status: 400 });
