@@ -56,7 +56,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const { email } = await req.json();
+    const { email } = (await req.json()) as { email: string };
 
     const targetUser = await db.user.findUnique({ where: { email } });
     if (!targetUser) {
@@ -103,7 +103,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   }
 
   try {
-    const { userId } = await req.json();
+    const { userId } = (await req.json()) as { userId: string };
 
     // ADMINは自分自身を削除できない
     if (userId === session.userId) {
