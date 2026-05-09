@@ -1,0 +1,57 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git branch*)",
+      "Bash(git show*)",
+      "Bash(git stash list)",
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
+      "Bash(npm run test*)",
+      "Bash(npm test)",
+      "Bash(npm ci)",
+      "Bash(npm install)",
+      "Bash(npm install --*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx prisma generate)",
+      "Bash(npx prisma migrate*)",
+      "Bash(npx prisma studio)",
+      "Bash(npx prisma db*)",
+      "Bash(npx prisma validate)",
+      "Bash(npx prisma format)",
+      "Bash(node --version)",
+      "Bash(npm --version)",
+      "Bash(ls*)",
+      "Bash(lsof*)",
+      "Bash(docker ps*)",
+      "Bash(docker-compose ps*)",
+      "Bash(colima status)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '=== Pre-commit checklist (my-slack-app/CLAUDE.md) ===\n1. 横展開チェック: 同一パターンの検索漏れがないか\n2. セキュリティ: XSS / 外部リンク rel 属性 / 機密情報のハードコードがないか\n3. パフォーマンス: 未使用依存・CSS 重複がないか\n4. テスト: 対応するテストが存在し、パスするか確認したか\n5. README: 変更に対応する README 更新が必要でないか\n=== 未確認の項目があれば先に対応してください ==='"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash(npm run test*|npm test)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '=== テスト完了 ===\nテストが通った場合: /commit スキルでコミット前チェックに進めます\nテストが失敗した場合: 失敗したテストを修正してから再実行してください'"
+          }
+        ]
+      }
+    ]
+  }
+}
