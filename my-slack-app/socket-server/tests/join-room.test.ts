@@ -53,7 +53,11 @@ describe("join_room イベント", () => {
   });
 
   it("非メンバーが join_room を送ると error イベントが返る", async () => {
-    const token = await createToken(userId!);
+    if (!userId || !channelId) {
+      throw new Error("userId or channelId is undefined");
+    }
+
+    const token = await createToken(userId);
     socket = connectSocket(token);
     await waitForConnect(socket);
 
@@ -65,9 +69,13 @@ describe("join_room イベント", () => {
   });
 
   it("メンバーが join_room を送るとエラーは返らない", async () => {
+    if (!userId || !channelId) {
+      throw new Error("userId or channelId is undefined");
+    }
+
     await db.member.create({ data: { userId, channelId } });
 
-    const token = await createToken(userId!);
+    const token = await createToken(userId);
     socket = connectSocket(token);
     await waitForConnect(socket);
 
