@@ -34,7 +34,7 @@ git push -u origin HEAD
 エージェントが返したタイトルと本文で PR を作成する：
 
 ```bash
-gh pr create --base develop --title "<タイトル>" --body "$(cat <<'EOF'
+gh pr create --base develop --assignee @me --title "<タイトル>" --body "$(cat <<'EOF'
 <本文>
 EOF
 )"
