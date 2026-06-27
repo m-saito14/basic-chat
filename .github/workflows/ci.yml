@@ -46,6 +46,9 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
     defaults:
       run:
         working-directory: ./my-slack-app
@@ -91,10 +94,26 @@ jobs:
 
       # 自動テスト (E2E)
       - name: Run E2E tests
-        run: npm run test:e2e
+        id: e2e_tests
+        run: npx vitest run --config vitest.config.ts --reporter=verbose --reporter=junit --outputFile.junit=test-results/junit.xml
+        continue-on-error: true
+
+      - name: Publish E2E test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: my-slack-app/test-results/junit.xml
+          check_name: E2E Test Results
+
+      - name: Fail if E2E tests failed
+        if: steps.e2e_tests.outcome == 'failure'
+        run: exit 1
 
   test-socket-server:
     runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
 
     services:
       postgres:
@@ -143,5 +162,18 @@ jobs:
         run: npx prisma migrate deploy
 
       - name: Run socket-server tests
+        id: socket_tests
         working-directory: ./my-slack-app/socket-server
-        run: npm test
+        run: npx vitest run --reporter=verbose --reporter=junit --outputFile.junit=test-results/junit.xml
+        continue-on-error: true
+
+      - name: Publish socket-server test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: my-slack-app/socket-server/test-results/junit.xml
+          check_name: Socket Server Test Results
+
+      - name: Fail if socket-server tests failed
+        if: steps.socket_tests.outcome == 'failure'
+        run: exit 1
