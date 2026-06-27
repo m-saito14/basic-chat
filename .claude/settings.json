@@ -27,11 +27,24 @@
       "Bash(lsof*)",
       "Bash(docker ps*)",
       "Bash(docker-compose ps*)",
-      "Bash(colima status)"
+      "Bash(colima status)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr list*)",
+      "Bash(git push*)"
     ]
   },
   "hooks": {
     "PreToolUse": [
+      {
+        "matcher": "Bash(git push*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "branch=$(git branch --show-current 2>/dev/null); if [ \"$branch\" = 'main' ] || [ \"$branch\" = 'develop' ]; then echo \"[BLOCKED] $branch ブランチへの直接プッシュは禁止です。feature/* または fix/* ブランチを使用してください。\" >&2; exit 2; fi"
+          }
+        ]
+      },
       {
         "matcher": "Bash(git commit*)",
         "hooks": [
@@ -49,6 +62,15 @@
           {
             "type": "command",
             "command": "echo '=== テスト完了 ===\nテストが通った場合: /commit スキルでコミット前チェックに進めます\nテストが失敗した場合: 失敗したテストを修正してから再実行してください'"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(gh pr create*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '=== PR 作成完了 ===\nCI が自動実行されます（lint-and-build / test / test-socket-server）\nPR の詳細は上記 URL を確認してください。'"
           }
         ]
       }
