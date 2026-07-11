@@ -10,7 +10,7 @@ tools: Bash(git log*), Bash(git diff*), Bash(git branch*)
 
 ## PR タイトルの規則
 
-- 70 文字以内
+- 75 文字以内
 - 変更の目的を端的に表す日本語
 - コミットメッセージの種別プレフィックス（feat: / fix: など）は除いてよい
 
