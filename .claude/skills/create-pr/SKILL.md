@@ -1,3 +1,8 @@
+---
+name: create-pr
+description: 事前チェック→プッシュ→pr-creator エージェントでタイトル/本文生成→develop ブランチへの GitHub PR 作成までを行う。PR を作りたいときに使う。
+---
+
 develop ブランチへの GitHub PR を作成します。
 
 ## ステップ 1: 事前チェック
