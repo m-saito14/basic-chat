@@ -175,7 +175,7 @@ enum MemberRole { ADMIN MODERATOR GUEST }
 
 ### 前提条件
 
-- Node.js 20 以上
+- Node.js 24.22.1 以上（リポジトリ直下の `.nvmrc` 参照。`nvm use` で切り替え可）
 - Docker / Docker Compose
 
 ### 1. リポジトリのクローン
